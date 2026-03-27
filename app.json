@@ -2,7 +2,7 @@
   "expo": {
     "name": "VanNeynsel",
     "slug": "boundaryless",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/adaptive-icon.png",
     "scheme": "vanneynsel",
@@ -45,6 +45,8 @@
     },
     "extra": {
       "router": {},
+      "env": "acceptance",
+      "enableSslPinning": false,
       "eas": {
         "projectId": "8ebcb9a4-9ad7-45d4-8e27-32a220a9b75a"
       }

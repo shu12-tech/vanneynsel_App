@@ -2,19 +2,14 @@ import { useTheme } from "@/hooks/useTheme";
 import { RootState } from "@/store";
 import { router } from "expo-router";
 import React from "react";
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import ProfileImage from "@/components/settings/ProfileImage";
 import ThemeSelector from "@/components/settings/ThemeSelector";
 import { Feather } from "@expo/vector-icons";
+import Constants from "expo-constants"; // ✅ ADDED
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
-
 
 export default function Settings() {
   const theme = useTheme();
@@ -32,25 +27,65 @@ export default function Settings() {
           Instellingen
         </Text>
       </View>
+
       <View style={styles.container}>
         <ProfileImage />
 
         <View style={styles.emailContainer}>
-          <Text style={[styles.emailLabel, { color: currentTheme == 'dark' ? "#FFF" : "#4D4D4D" }]}>e-mail</Text>
-          <Text style={[styles.emailText, { color: theme.text }]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.emailLabel,
+              { color: currentTheme == "dark" ? "#FFF" : "#4D4D4D" },
+            ]}
+          >
+            e-mail
+          </Text>
+          <Text
+            style={[styles.emailText, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {email ?? ""}
           </Text>
         </View>
 
-        <ThemeSelector />
+        {/* ✅ APP INFO SECTION (DYNAMIC) */}
+        <View style={styles.emailContainer}>
+          <Text
+            style={[
+              styles.emailLabel,
+              { color: currentTheme == "dark" ? "#FFF" : "#4D4D4D" },
+            ]}
+          >
+            App Info
+          </Text>
 
-     
+          <Text style={[styles.emailText, { color: theme.text }]}>
+            Version: {Constants.expoConfig?.version ?? "N/A"}
+          </Text>
+          <Text style={[styles.emailText, { color: theme.text }]}>
+            Environment: {process.env.EXPO_PUBLIC_APP_ENV ?? "N/A"}
+          </Text>
+
+          <Text style={[styles.emailText, { color: theme.text }]}>
+            SSL Pinning:{" "}
+            {(process.env.EXPO_PUBLIC_ENABLE_SSL_PINNING ?? "false") === "true"
+              ? "Enabled"
+              : "Disabled"}
+          </Text>
+        </View>
+
+        <ThemeSelector />
       </View>
     </SafeAreaView>
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: currentTheme === "van" ? "#FFF4FD" : theme.background }}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: currentTheme === "van" ? "#FFF4FD" : theme.background,
+      }}
+    >
       {renderContent()}
     </View>
   );
@@ -60,7 +95,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    
   },
   emailContainer: {
     marginVertical: 20,
@@ -80,7 +114,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    // borderBottomWidth: 1,
   },
   headerTitle: {
     fontSize: 20,
@@ -104,4 +137,3 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
 });
-
