@@ -2,7 +2,7 @@
   "expo": {
     "name": "VanNeynsel",
     "slug": "boundaryless",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/adaptive-icon.png",
     "scheme": "vanneynsel",
@@ -11,13 +11,20 @@
       "supportsTablet": true
     },
     "android": {
+      "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/adaptive-icon.png"
       },
       "predictiveBackGestureEnabled": false,
       "userInterfaceStyle": "automatic",
-      "package": "com.askraa.boundaryless"
+      "package": "com.askraa.boundaryless",
+      "blockedPermissions": [
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "web": {
       "output": "static",
@@ -48,9 +55,9 @@
       "env": "acceptance",
       "enableSslPinning": false,
       "eas": {
-        "projectId": "8ebcb9a4-9ad7-45d4-8e27-32a220a9b75a"
+        "projectId": "601bbb0a-b099-437a-99c2-b8f63290d84a"
       }
     },
-    "owner": "shub_boundaryless"
+    "owner": "shubham57"
   }
 }

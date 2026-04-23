@@ -6,12 +6,25 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://backend.mijnvirtueleassistent.nl/Boundaryless_API",
+        "EXPO_PUBLIC_WS_BASE_URL": "wss://backend.mijnvirtueleassistent.nl/Boundaryless_API/ws",
+        "EXPO_PUBLIC_AGENT_ID": "87585267-ba27-4a3f-ba27-38347b39738a",
+        "EXPO_PUBLIC_ENABLE_SSL_PINNING": "false",
+        "EXPO_PUBLIC_APP_ENV": "development"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://backend.mijnvirtueleassistent.nl/Boundaryless_API",
+        "EXPO_PUBLIC_WS_BASE_URL": "wss://backend.mijnvirtueleassistent.nl/Boundaryless_API/ws",
+        "EXPO_PUBLIC_AGENT_ID": "87585267-ba27-4a3f-ba27-38347b39738a",
+        "EXPO_PUBLIC_ENABLE_SSL_PINNING": "false",
+        "EXPO_PUBLIC_APP_ENV": "preview"
+      }
     },
-
     "acceptance-apk-unpinned": {
       "distribution": "internal",
       "android": {
@@ -19,11 +32,13 @@
       },
       "autoIncrement": true,
       "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://backend.mijnvirtueleassistent.nl/Boundaryless_API",
+        "EXPO_PUBLIC_WS_BASE_URL": "wss://backend.mijnvirtueleassistent.nl/Boundaryless_API/ws",
+        "EXPO_PUBLIC_AGENT_ID": "87585267-ba27-4a3f-ba27-38347b39738a",
         "EXPO_PUBLIC_ENABLE_SSL_PINNING": "false",
         "EXPO_PUBLIC_APP_ENV": "acceptance"
       }
     },
-
     "acceptance-apk-pinned": {
       "distribution": "internal",
       "android": {
@@ -31,14 +46,19 @@
       },
       "autoIncrement": true,
       "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://backend.mijnvirtueleassistent.nl/Boundaryless_API",
+        "EXPO_PUBLIC_WS_BASE_URL": "wss://backend.mijnvirtueleassistent.nl/Boundaryless_API/ws",
+        "EXPO_PUBLIC_AGENT_ID": "87585267-ba27-4a3f-ba27-38347b39738a",
         "EXPO_PUBLIC_ENABLE_SSL_PINNING": "true",
         "EXPO_PUBLIC_APP_ENV": "acceptance"
       }
     },
-
     "production": {
       "autoIncrement": true,
       "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://backend.mijnvirtueleassistent.nl/Boundaryless_API",
+        "EXPO_PUBLIC_WS_BASE_URL": "wss://backend.mijnvirtueleassistent.nl/Boundaryless_API/ws",
+        "EXPO_PUBLIC_AGENT_ID": "87585267-ba27-4a3f-ba27-38347b39738a",
         "EXPO_PUBLIC_ENABLE_SSL_PINNING": "true",
         "EXPO_PUBLIC_APP_ENV": "production"
       }
@@ -48,6 +68,77 @@
     "production": {}
   }
 }
+/*{
+  "cli": {
+    "version": ">= 16.19.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://d02.srv.boundaryless.com:20002/Boundaryless_API",
+        "EXPO_PUBLIC_WS_BASE_URL": "wss://d02.srv.boundaryless.com:20002/Boundaryless_API/ws",
+        "EXPO_PUBLIC_AGENT_ID": "87585267-ba27-4a3f-ba27-38347b39738a",
+        "EXPO_PUBLIC_ENABLE_SSL_PINNING": "false",
+        "EXPO_PUBLIC_APP_ENV": "development"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://d02.srv.boundaryless.com:20002/Boundaryless_API",
+        "EXPO_PUBLIC_WS_BASE_URL": "wss://d02.srv.boundaryless.com:20002/Boundaryless_API/ws",
+        "EXPO_PUBLIC_AGENT_ID": "87585267-ba27-4a3f-ba27-38347b39738a",
+        "EXPO_PUBLIC_ENABLE_SSL_PINNING": "false",
+        "EXPO_PUBLIC_APP_ENV": "preview"
+      }
+    },
+    "acceptance-apk-unpinned": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://d02.srv.boundaryless.com:20002/Boundaryless_API",
+        "EXPO_PUBLIC_WS_BASE_URL": "wss://d02.srv.boundaryless.com:20002/Boundaryless_API/ws",
+        "EXPO_PUBLIC_AGENT_ID": "87585267-ba27-4a3f-ba27-38347b39738a",
+        "EXPO_PUBLIC_ENABLE_SSL_PINNING": "false",
+        "EXPO_PUBLIC_APP_ENV": "acceptance"
+      }
+    },
+    "acceptance-apk-pinned": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://d02.srv.boundaryless.com:20002/Boundaryless_API",
+        "EXPO_PUBLIC_WS_BASE_URL": "wss://d02.srv.boundaryless.com:20002/Boundaryless_API/ws",
+        "EXPO_PUBLIC_AGENT_ID": "87585267-ba27-4a3f-ba27-38347b39738a",
+        "EXPO_PUBLIC_ENABLE_SSL_PINNING": "true",
+        "EXPO_PUBLIC_APP_ENV": "acceptance"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://d02.srv.boundaryless.com:20002/Boundaryless_API",
+        "EXPO_PUBLIC_WS_BASE_URL": "wss://d02.srv.boundaryless.com:20002/Boundaryless_API/ws",
+        "EXPO_PUBLIC_AGENT_ID": "87585267-ba27-4a3f-ba27-38347b39738a",
+        "EXPO_PUBLIC_ENABLE_SSL_PINNING": "true",
+        "EXPO_PUBLIC_APP_ENV": "production"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}*/
+
 /*{
   "cli": {
     "version": ">= 16.19.1",

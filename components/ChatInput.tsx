@@ -1,4 +1,418 @@
-import { WS_BASE_URL } from '@/constants/api';
+import { WS_BASE_URL } from "@/constants/api";
+import { themes } from "@/constants/Colors";
+import {
+  addAssistantPlaceholder,
+  addUserMessage,
+  appendToAssistantMessage,
+  clearMessages,
+  finalizeAssistantMessage,
+  setAsk,
+  setAssistantStatus,
+  setPrompt,
+  updateLastMessage,
+} from "@/store/promptSlice";
+import { createSession } from "@/store/sessionSlice";
+import { Ionicons } from "@expo/vector-icons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { BlurView } from "expo-blur";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import {
+  Dimensions,
+  Keyboard,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "../store";
+import AskAtModal from "./AskAtModal";
+import Camera from "./icons/Camera";
+import Database from "./icons/Database";
+import Upload from "./icons/Upload";
+
+const createClientTurnId = () => {
+  return `turn_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const ChatInput = ({ homeScreen = false }) => {
+  const [modalVisible, setModalVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const dispatch: AppDispatch = useDispatch();
+  const { prompt, ask } = useSelector((state: RootState) => state.prompt);
+  const { user, token } = useSelector((state: RootState) => state.auth);
+  const { currentSession } = useSelector((state: RootState) => state.session);
+  const router = useRouter();
+
+  const themeName = useSelector((state: RootState) => state.theme.theme);
+  const theme = themes[themeName];
+  const styles = getStyles(theme, homeScreen);
+  const iconColor = "#9CA3AF";
+
+  const handleInputChange = (text: string) => {
+    dispatch(setPrompt(text));
+  };
+
+  const handleClearAsk = () => {
+    dispatch(setAsk(null));
+  };
+
+  const handleSend = async () => {
+    if (!prompt.trim() || !user || !token || isSubmitting) return;
+
+    Keyboard.dismiss();
+    setIsSubmitting(true);
+
+    let sessionForThisSend = currentSession;
+    const rawPrompt = prompt.trim();
+
+    if (homeScreen) {
+      dispatch(clearMessages());
+
+      const resultAction = await dispatch(createSession());
+
+      if (createSession.fulfilled.match(resultAction)) {
+        sessionForThisSend = resultAction.payload;
+        router.push("/chat");
+      } else {
+        console.error("Failed to create session");
+        dispatch(
+          updateLastMessage("Error: Could not start a new chat session."),
+        );
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    if (!sessionForThisSend) {
+      console.error("No active session for sending message.");
+      dispatch(updateLastMessage("Error: No active chat session."));
+      setIsSubmitting(false);
+      return;
+    }
+
+    const clientTurnId = createClientTurnId();
+
+    dispatch(addUserMessage(rawPrompt));
+    dispatch(addAssistantPlaceholder({ client_turn_id: clientTurnId }));
+
+    const currentPrompt = ask ? `@ask ${ask}: ${rawPrompt}` : rawPrompt;
+
+    dispatch(setPrompt(""));
+
+    const ws = new WebSocket(
+      `${WS_BASE_URL}/${user.username}/${sessionForThisSend.session_id}?token=${token}`,
+    );
+
+    let hasReceivedStream = false;
+
+    ws.onopen = () => {
+      ws.send(
+        JSON.stringify({
+          text: currentPrompt,
+          context: ask,
+          client_turn_id: clientTurnId,
+        }),
+      );
+    };
+
+    ws.onmessage = (e) => {
+      try {
+        const response = JSON.parse(e.data);
+        const responseTurnId = response?.client_turn_id || clientTurnId;
+
+        if (response?.type === "status") {
+          const statusText =
+            response?.text ||
+            response?.message ||
+            response?.status ||
+            "Generating response...";
+
+          dispatch(
+            setAssistantStatus({
+              client_turn_id: responseTurnId,
+              status: statusText,
+            }),
+          );
+          return;
+        }
+
+        if (response?.type === "phase") {
+          const phaseText =
+            response?.text ||
+            response?.message ||
+            response?.phase ||
+            "Working on your request...";
+
+          dispatch(
+            setAssistantStatus({
+              client_turn_id: responseTurnId,
+              status: phaseText,
+            }),
+          );
+          return;
+        }
+
+        if (response?.final) {
+          if (
+            typeof response?.text === "string" &&
+            response.text.trim() &&
+            !hasReceivedStream
+          ) {
+            dispatch(
+              finalizeAssistantMessage({
+                client_turn_id: responseTurnId,
+                id: response?.assistant_message_id ?? null,
+                text: response.text,
+              }),
+            );
+          } else {
+            dispatch(
+              finalizeAssistantMessage({
+                client_turn_id: responseTurnId,
+                id: response?.assistant_message_id ?? null,
+              }),
+            );
+          }
+
+          setIsSubmitting(false);
+          ws.close();
+          return;
+        }
+
+        if (
+          typeof response?.text === "string" &&
+          response.text &&
+          !response.text.startsWith("\n---\n### Live results — Up next:")
+        ) {
+          hasReceivedStream = true;
+
+          dispatch(
+            appendToAssistantMessage({
+              client_turn_id: responseTurnId,
+              text: response.text,
+            }),
+          );
+        }
+      } catch (error) {
+        console.error("WebSocket parse error:", error);
+      }
+    };
+
+    ws.onerror = (e) => {
+      console.error("WebSocket error:", e);
+      dispatch(updateLastMessage("Error generating response."));
+      dispatch(
+        setAssistantStatus({
+          client_turn_id: clientTurnId,
+          status: null,
+        }),
+      );
+      setIsSubmitting(false);
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket closed");
+      setIsSubmitting(false);
+    };
+  };
+
+  return (
+    <View>
+      <BlurView
+        intensity={0}
+        style={[
+          ask ? styles.containerAsk : styles.container,
+          { marginHorizontal: homeScreen ? 0 : 3 },
+        ]}
+      >
+        <View>
+          {ask && (
+            <View style={styles.askContainer}>
+              <Text style={styles.askText}>@{ask}</Text>
+              <TouchableOpacity onPress={handleClearAsk}>
+                <MaterialCommunityIcons
+                  name="window-close"
+                  size={18}
+                  color="#6B7280"
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Type a message"
+              placeholderTextColor="#9CA3AF"
+              multiline
+              value={prompt}
+              onChangeText={handleInputChange}
+            />
+
+            <View style={styles.controlsContainer}>
+              <View style={styles.leftControls}>
+                {!ask && (
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={() => setModalVisible(true)}
+                  >
+                    <Database size={20} color={iconColor} />
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity style={styles.button}>
+                  <Upload size={16} color={iconColor} />
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.button}>
+                  <Camera size={20} color={iconColor} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.rightControls}>
+                <TouchableOpacity style={styles.micButton}>
+                  <MaterialIcons name="mic-none" size={22} color={iconColor} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.sendButton,
+                    { opacity: !prompt.trim() || isSubmitting ? 0.7 : 1 },
+                  ]}
+                  onPress={
+                    !prompt.trim() || isSubmitting ? undefined : handleSend
+                  }
+                >
+                  <Ionicons name="arrow-up" size={20} color="white" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          <AskAtModal
+            visible={modalVisible}
+            onClose={() => setModalVisible(false)}
+          />
+        </View>
+      </BlurView>
+
+      <Text style={styles.disclaimerText}>
+        De reacties van de assistent zijn AI gegenereerd
+      </Text>
+    </View>
+  );
+};
+
+const getStyles = (theme: any, homeScreen: boolean) => {
+  const { height } = Dimensions.get("window");
+  const isSmallScreen = height < 700;
+
+  return StyleSheet.create({
+    container: {
+      borderRadius: 18,
+      backgroundColor: "#FFFFFF",
+      borderWidth: 1,
+      borderColor: "#E5E7EB",
+      overflow: "hidden",
+      padding: 6,
+    },
+    containerAsk: {
+      backgroundColor: "#FFFFFF",
+      borderRadius: 18,
+      paddingTop: 4,
+      paddingBottom: 4,
+      paddingHorizontal: 4,
+      borderWidth: 1,
+      borderColor: "#E5E7EB",
+    },
+    askContainer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 15,
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: "#F3F4F6",
+    },
+    askText: {
+      color: "#374151",
+      fontFamily: "Inter_500Medium",
+      fontSize: 15,
+      textTransform: "capitalize",
+    },
+    inputContainer: {
+      backgroundColor: "#FFFFFF",
+      borderRadius: 14,
+      paddingHorizontal: 10,
+      paddingTop: 10,
+      minHeight: 50,
+    },
+    input: {
+      fontSize: 16,
+      color: "#111827",
+      maxHeight: 160,
+      minHeight: homeScreen ? (isSmallScreen ? 80 : 112) : 50,
+      textAlignVertical: "top",
+    },
+    controlsContainer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginTop: 10,
+      marginBottom: 5,
+    },
+    leftControls: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    rightControls: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    button: {
+      backgroundColor: "transparent",
+      borderRadius: 20,
+      width: 36,
+      height: 36,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 8,
+    },
+    micButton: {
+      backgroundColor: "transparent",
+      width: 36,
+      height: 36,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 8,
+    },
+    sendButton: {
+      backgroundColor: "#e9218f",
+      borderRadius: 18,
+      width: 36,
+      height: 36,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    disclaimerText: {
+      paddingVertical: 6,
+      fontFamily: "Inter",
+      fontWeight: "400",
+      fontSize: 13,
+      lineHeight: 16,
+      color: "#6B7280",
+      textAlign: "center",
+    },
+  });
+};
+
+export default ChatInput;
+/*import { WS_BASE_URL } from '@/constants/api';
 import { themes } from '@/constants/Colors';
 import { addMessage, clearMessages, setAsk, setPrompt, updateLastMessage } from '@/store/promptSlice';
 import { createSession } from '@/store/sessionSlice';
@@ -323,4 +737,4 @@ const getStyles = (theme: any, homeScreen: boolean) => {
   });
 };
 
-export default ChatInput;
+export default ChatInput;*/

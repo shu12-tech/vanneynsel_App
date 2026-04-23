@@ -22,8 +22,8 @@ type Props = {
   onSubmit: (payload: {
     messageId: string;
     ratingType: RatingType;
-    reason: string;
-    additionalFeedback: string;
+    category: string;
+    additionalComments: string;
   }) => void;
 };
 
@@ -75,10 +75,10 @@ export default function RatingFeedbackModal({
     !!selectedReason && (!isOther || text.trim().length > 0);
 
   const titleText = "Help ons jouw assistent te verbeteren";
-  const subTitleText = "Toelichting (niet verplicht)";
+  const subTitleText = "Toelichting";
   const placeholder = textEnabled
-    ? "Toelichting"
-    : "Kies wat er niet goed ging";
+    ? "Extra comments"
+    : "Kies eerst een categorie";
 
   return (
     <Modal
@@ -104,15 +104,11 @@ export default function RatingFeedbackModal({
           <View style={styles.chipsWrap}>
             {reasons.map((r) => {
               const selected = r === selectedReason;
+
               return (
                 <TouchableOpacity
                   key={r}
-                  onPress={() => {
-                    console.log("Reason clicked:", r);
-                    console.log("Message ID:", messageId);
-                    console.log("Rating Type:", ratingType);
-                    setSelectedReason(r);
-                  }}
+                  onPress={() => setSelectedReason(r)}
                   style={[styles.chip, selected && styles.chipSelected]}
                 >
                   <Text
@@ -132,10 +128,7 @@ export default function RatingFeedbackModal({
 
           <TextInput
             value={text}
-            onChangeText={(value) => {
-              console.log("Feedback text changed:", value);
-              setText(value);
-            }}
+            onChangeText={setText}
             editable={textEnabled}
             placeholder={placeholder}
             placeholderTextColor={themeName === "dark" ? "#9aa0a6" : "#6b7280"}
@@ -149,15 +142,7 @@ export default function RatingFeedbackModal({
           </Text>
 
           <View style={styles.footer}>
-            <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={() => {
-                console.log("Feedback popup cancelled");
-                console.log("Message ID:", messageId);
-                console.log("Rating Type:", ratingType);
-                onClose();
-              }}
-            >
+            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
               <Text style={styles.cancelText}>Annuleren</Text>
             </TouchableOpacity>
 
@@ -168,23 +153,12 @@ export default function RatingFeedbackModal({
               ]}
               disabled={!submitEnabled}
               onPress={() => {
-                const payload = {
+                onSubmit({
                   messageId,
                   ratingType,
-                  reason: selectedReason,
-                  additionalFeedback: text.trim(),
-                };
-
-                console.log("===== THUMBS DOWN SUBMITTED =====");
-                console.log("Message ID:", payload.messageId);
-                console.log("Rating Type:", payload.ratingType);
-                console.log("Reason Selected:", payload.reason);
-                console.log("Additional Feedback:", payload.additionalFeedback);
-                console.log("Full Payload:", payload);
-                console.log("=================================");
-
-                onSubmit(payload);
-                onClose();
+                  category: selectedReason,
+                  additionalComments: text.trim(),
+                });
               }}
             >
               <Text
@@ -250,7 +224,6 @@ const getStyles = (theme: any) =>
       fontWeight: "700",
       color: theme.chatAssistantText,
     },
-
     chipsWrap: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -267,7 +240,7 @@ const getStyles = (theme: any) =>
     },
     chipSelected: {
       backgroundColor: theme.chatAssistant,
-      borderColor: "#BD3172",
+      borderColor: theme.iconPrimaryBg,
     },
     chipText: {
       fontSize: 14,
@@ -276,9 +249,8 @@ const getStyles = (theme: any) =>
     },
     chipTextSelected: {
       fontWeight: "700",
-      color: "#BD3172",
+      color: theme.iconPrimaryBg,
     },
-
     subTitle: {
       fontSize: 12,
       fontWeight: "600",
@@ -286,7 +258,6 @@ const getStyles = (theme: any) =>
       marginBottom: 8,
       opacity: 0.7,
     },
-
     input: {
       minHeight: 120,
       borderWidth: 1,
@@ -303,7 +274,6 @@ const getStyles = (theme: any) =>
       opacity: 0.7,
       color: theme.chatAssistantText,
     },
-
     note: {
       marginTop: 10,
       fontSize: 12,
@@ -311,7 +281,6 @@ const getStyles = (theme: any) =>
       lineHeight: 16,
       opacity: 0.7,
     },
-
     footer: {
       marginTop: 16,
       flexDirection: "row",
@@ -330,12 +299,11 @@ const getStyles = (theme: any) =>
       fontWeight: "600",
       color: theme.chatAssistantText,
     },
-
     submitBtn: {
       paddingVertical: 10,
       paddingHorizontal: 18,
       borderRadius: 10,
-      backgroundColor: "#BD3172",
+      backgroundColor: theme.iconPrimaryBg,
     },
     submitDisabled: {
       backgroundColor: theme.chatAssistant,

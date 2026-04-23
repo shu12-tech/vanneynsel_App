@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { combineReducers, configureStore } from '@reduxjs/toolkit';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import {
   FLUSH,
   PAUSE,
@@ -9,16 +9,16 @@ import {
   PURGE,
   REGISTER,
   REHYDRATE,
-} from 'redux-persist';
-import authReducer, { AuthState } from './authSlice';
-import promptReducer, { PromptState } from './promptSlice';
-import sessionReducer, { SessionState } from './sessionSlice';
-import themeReducer from './themeSlice';
+} from "redux-persist";
+import authReducer, { AuthState } from "./authSlice";
+import promptReducer, { PromptState } from "./promptSlice";
+import sessionReducer, { SessionState } from "./sessionSlice";
+import themeReducer from "./themeSlice";
 
 const persistConfig = {
-  key: 'root',
+  key: "root",
   storage: AsyncStorage,
-  whitelist: ['theme'], // We only want to persist the theme
+  whitelist: ["theme"],
 };
 
 const rootReducer = combineReducers({
@@ -30,12 +30,11 @@ const rootReducer = combineReducers({
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
-// Define the root state type
 export interface RootState {
   auth: AuthState;
   prompt: PromptState;
   session: SessionState;
-  theme: { theme: 'van' | 'light' | 'dark'; systemTheme: boolean };
+  theme: { theme: "van" | "light" | "dark"; systemTheme: boolean };
 }
 
 export const store = configureStore({
@@ -50,8 +49,4 @@ export const store = configureStore({
 
 export const persistor = persistStore(store);
 
-// Export the typed dispatch
 export type AppDispatch = typeof store.dispatch;
-
-// Export the store's getState type
-export type RootStateType = ReturnType<typeof store.getState>;
