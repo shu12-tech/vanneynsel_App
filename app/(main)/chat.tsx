@@ -9,7 +9,7 @@ import { RootState } from "@/store";
 import { useAppDispatch } from "@/store/hooks";
 import { getMessages, setMessageFeedback } from "@/store/promptSlice";
 import React, { useEffect, useRef, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
 
@@ -17,6 +17,10 @@ const ChatScreen = () => {
   const dispatch = useAppDispatch();
 
   const chatMessages = useSelector((state: RootState) => state.prompt.messages);
+  const currentStatus = useSelector(
+    (state: RootState) => state.prompt.currentStatus,
+  );
+
   const { token } = useSelector((state: RootState) => state.auth);
   const { currentSession } = useSelector((state: RootState) => state.session);
   const { isKeyboardVisible, keyboardHeight } = useKeyboardVisible();
@@ -28,7 +32,6 @@ const ChatScreen = () => {
   const [feedbackType, setFeedbackType] = useState<"up" | "down">("up");
   const [feedbackMessageId, setFeedbackMessageId] = useState("");
 
-  // ✅ FIX: only fetch messages if NONE exist
   useEffect(() => {
     if (
       currentSession?.session_id &&
@@ -63,7 +66,6 @@ const ChatScreen = () => {
       });
 
       const data = await response.json();
-      console.log("feedback response:", data);
 
       if (data?.feedback) {
         dispatch(
@@ -94,7 +96,6 @@ const ChatScreen = () => {
     setFeedbackOpen(true);
   };
 
-  // ✅ SCROLL FIX (unchanged)
   useEffect(() => {
     if (chatMessages && chatMessages.length > 0) {
       setTimeout(() => {
@@ -102,6 +103,14 @@ const ChatScreen = () => {
       }, 100);
     }
   }, [chatMessages]);
+
+  useEffect(() => {
+    if (currentStatus) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [currentStatus]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
@@ -138,12 +147,13 @@ const ChatScreen = () => {
             onContentSizeChange={() => {
               flatListRef.current?.scrollToEnd({ animated: true });
             }}
-            onScrollToIndexFailed={(info) => {
-              flatListRef.current?.scrollToOffset({
-                offset: info.averageItemLength * info.index,
-                animated: true,
-              });
-            }}
+            ListFooterComponent={
+              currentStatus ? (
+                <View style={styles.statusContainer}>
+                  <Text style={styles.statusText}>{currentStatus}</Text>
+                </View>
+              ) : null
+            }
           />
         </View>
 
@@ -161,12 +171,7 @@ const ChatScreen = () => {
           ratingType={feedbackType}
           messageId={feedbackMessageId}
           onClose={() => setFeedbackOpen(false)}
-          onSubmit={async (payload: {
-            messageId: string;
-            ratingType: "up" | "down";
-            category: string;
-            additionalComments: string;
-          }) => {
+          onSubmit={async (payload) => {
             await submitFeedback({
               messageId: payload.messageId,
               ratingType: "down",
@@ -182,17 +187,19 @@ const ChatScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
+  safeArea: { flex: 1 },
+  chatContainer: { flex: 1 },
+  inputContainer: { justifyContent: "center" },
+  listContainer: { padding: 10 },
+  statusContainer: {
+    paddingLeft: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
-  chatContainer: {
-    flex: 1,
-  },
-  inputContainer: {
-    justifyContent: "center",
-  },
-  listContainer: {
-    padding: 10,
+  statusText: {
+    color: "#6B7280",
+    fontStyle: "italic",
+    fontSize: 14,
   },
 });
 

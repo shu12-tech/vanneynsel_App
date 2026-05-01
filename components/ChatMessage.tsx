@@ -28,15 +28,12 @@ const ChatMessage = ({
 
   const [showFeedbackSubmitted, setShowFeedbackSubmitted] = useState(false);
   const [hideFeedbackCompletely, setHideFeedbackCompletely] = useState(false);
-  const [loadingDots, setLoadingDots] = useState(".");
 
-  const displayText = message?.text?.trim()
-    ? message.text
-    : message?.status?.trim()
-      ? message.status
-      : "";
+  // ✅ STATUS SHOULD NOT COME INSIDE BUBBLE
+  // Only assistant_delta text should show here
+  const displayText = message?.text || "";
 
-  const isGenerating = !!message?.status && !message?.text?.trim();
+  const isGenerating = false;
 
   useEffect(() => {
     if (message?.feedback || isRated) {
@@ -51,23 +48,6 @@ const ChatMessage = ({
       return () => clearTimeout(timer);
     }
   }, [message?.feedback, isRated]);
-
-  useEffect(() => {
-    if (!isGenerating) {
-      setLoadingDots(".");
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setLoadingDots((prev) => {
-        if (prev === ".") return "..";
-        if (prev === "..") return "...";
-        return ".";
-      });
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [isGenerating]);
 
   const blocks = useMemo(() => {
     const text = displayText;
@@ -347,36 +327,29 @@ const ChatMessage = ({
     >
       {isAssistant ? (
         <>
-          {isGenerating ? (
-            <Text style={styles.statusText}>
-              {(message?.status || "Generating response") + loadingDots}
-            </Text>
+          <Markdown style={markdownStyles}>{visibleMessage || ""}</Markdown>
+
+          {hasMore ? (
+            <View style={styles.controlsContainer}>
+              <TouchableOpacity onPress={handleSeeMore}>
+                <Text style={styles.showMoreText}>Show more</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={handleShowAll}>
+                <Text style={styles.showMoreText}>Show all</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.sectionsCountText}>
+                Showing {shownStep} of {totalSteps} sections
+              </Text>
+            </View>
           ) : (
-            <Markdown style={markdownStyles}>{visibleMessage || ""}</Markdown>
+            <View style={styles.controlsContainer}>
+              <Text style={styles.sectionsCountText}>
+                Showing {shownStep} of {totalSteps} sections
+              </Text>
+            </View>
           )}
-
-          {!isGenerating &&
-            (hasMore ? (
-              <View style={styles.controlsContainer}>
-                <TouchableOpacity onPress={handleSeeMore}>
-                  <Text style={styles.showMoreText}>Show more</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={handleShowAll}>
-                  <Text style={styles.showMoreText}>Show all</Text>
-                </TouchableOpacity>
-
-                <Text style={styles.sectionsCountText}>
-                  Showing {shownStep} of {totalSteps} sections
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.controlsContainer}>
-                <Text style={styles.sectionsCountText}>
-                  Showing {shownStep} of {totalSteps} sections
-                </Text>
-              </View>
-            ))}
 
           {canShowRating && !hideFeedbackCompletely && (
             <View style={styles.feedbackRow}>

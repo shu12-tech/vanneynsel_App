@@ -17,6 +17,7 @@ export interface PromptState {
   loading: boolean;
   error: string | null;
   ask: string | null;
+  currentStatus: string;
 }
 
 const initialState: PromptState = {
@@ -25,6 +26,7 @@ const initialState: PromptState = {
   loading: false,
   error: null,
   ask: null,
+  currentStatus: "",
 };
 
 export const getMessages = createAsyncThunk<
@@ -87,6 +89,10 @@ const promptSlice = createSlice({
       state.prompt = action.payload;
     },
 
+    setCurrentStatus(state, action: PayloadAction<string>) {
+      state.currentStatus = action.payload;
+    },
+
     setMessages(state, action: PayloadAction<Message[]>) {
       state.messages = action.payload;
     },
@@ -102,53 +108,21 @@ const promptSlice = createSlice({
       });
     },
 
-    addAssistantPlaceholder(
-      state,
-      action: PayloadAction<{ client_turn_id?: string | null }>,
-    ) {
-      state.messages.push({
-        id: null,
-        role: "assistant",
-        text: "",
-        status: "Generating response...",
-        client_turn_id: action.payload?.client_turn_id ?? null,
-        feedback: null,
-      });
-    },
-
-    setAssistantStatus(
-      state,
-      action: PayloadAction<{
-        client_turn_id?: string | null;
-        status: string | null;
-      }>,
-    ) {
-      const { client_turn_id, status } = action.payload;
-
-      if (client_turn_id) {
-        const targetIndex = state.messages.findIndex(
-          (msg) =>
-            msg.role === "assistant" && msg.client_turn_id === client_turn_id,
-        );
-
-        if (targetIndex >= 0) {
-          state.messages[targetIndex].status = status;
-          return;
-        }
-      }
-
-      const lastIndex = state.messages.length - 1;
-
-      if (lastIndex >= 0 && state.messages[lastIndex].role === "assistant") {
-        state.messages[lastIndex].status = status;
-      }
-    },
-
     updateLastMessage(state, action: PayloadAction<string>) {
       const lastIndex = state.messages.length - 1;
+
       if (lastIndex >= 0 && state.messages[lastIndex].role === "assistant") {
         state.messages[lastIndex].text = action.payload;
         state.messages[lastIndex].status = null;
+      } else {
+        state.messages.push({
+          id: null,
+          role: "assistant",
+          text: action.payload,
+          status: null,
+          client_turn_id: null,
+          feedback: null,
+        });
       }
     },
 
@@ -163,27 +137,12 @@ const promptSlice = createSlice({
 
       if (!text) return;
 
-      if (client_turn_id) {
-        const targetIndex = state.messages.findIndex(
-          (msg) =>
-            msg.role === "assistant" && msg.client_turn_id === client_turn_id,
-        );
+      const assistantMessage = state.messages.find(
+        (msg) =>
+          msg.role === "assistant" && msg.client_turn_id === client_turn_id,
+      );
 
-        if (targetIndex >= 0) {
-          state.messages[targetIndex].text =
-            (state.messages[targetIndex].text || "") + text;
-          state.messages[targetIndex].status = null;
-          return;
-        }
-      }
-
-      const lastIndex = state.messages.length - 1;
-
-      if (lastIndex >= 0 && state.messages[lastIndex].role === "assistant") {
-        state.messages[lastIndex].text =
-          (state.messages[lastIndex].text || "") + text;
-        state.messages[lastIndex].status = null;
-      } else {
+      if (!assistantMessage) {
         state.messages.push({
           id: null,
           role: "assistant",
@@ -192,7 +151,11 @@ const promptSlice = createSlice({
           client_turn_id: client_turn_id ?? null,
           feedback: null,
         });
+        return;
       }
+
+      assistantMessage.text = (assistantMessage.text || "") + text;
+      assistantMessage.status = null;
     },
 
     finalizeAssistantMessage(
@@ -264,12 +227,14 @@ const promptSlice = createSlice({
 
     clearMessages(state) {
       state.messages = [];
+      state.currentStatus = "";
     },
 
     clearPromptError(state) {
       state.error = null;
     },
   },
+
   extraReducers: (builder) => {
     builder
       .addCase(getMessages.pending, (state) => {
@@ -295,11 +260,10 @@ const promptSlice = createSlice({
 
 export const {
   setPrompt,
+  setCurrentStatus,
   setMessages,
   addMessage,
   addUserMessage,
-  addAssistantPlaceholder,
-  setAssistantStatus,
   updateLastMessage,
   appendToAssistantMessage,
   finalizeAssistantMessage,

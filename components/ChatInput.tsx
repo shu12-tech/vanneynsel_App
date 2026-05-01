@@ -1,13 +1,13 @@
 import { WS_BASE_URL } from "@/constants/api";
 import { themes } from "@/constants/Colors";
+import { sendChatMessageWithSocket } from "@/hooks/useChatSocket";
 import {
-  addAssistantPlaceholder,
   addUserMessage,
   appendToAssistantMessage,
   clearMessages,
   finalizeAssistantMessage,
   setAsk,
-  setAssistantStatus,
+  setCurrentStatus,
   setPrompt,
   updateLastMessage,
 } from "@/store/promptSlice";
@@ -34,11 +34,15 @@ import Camera from "./icons/Camera";
 import Database from "./icons/Database";
 import Upload from "./icons/Upload";
 
+type ChatInputProps = {
+  homeScreen?: boolean;
+};
+
 const createClientTurnId = () => {
   return `turn_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 };
 
-const ChatInput = ({ homeScreen = false }) => {
+const ChatInput = ({ homeScreen = false }: ChatInputProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -50,7 +54,7 @@ const ChatInput = ({ homeScreen = false }) => {
 
   const themeName = useSelector((state: RootState) => state.theme.theme);
   const theme = themes[themeName];
-  const styles = getStyles(theme, homeScreen);
+  const styles = getStyles(theme, homeScreen, themeName);
   const iconColor = "#9CA3AF";
 
   const handleInputChange = (text: string) => {
@@ -66,12 +70,14 @@ const ChatInput = ({ homeScreen = false }) => {
 
     Keyboard.dismiss();
     setIsSubmitting(true);
+    dispatch(setCurrentStatus("Drafting a direct response..."));
 
     let sessionForThisSend = currentSession;
     const rawPrompt = prompt.trim();
 
     if (homeScreen) {
       dispatch(clearMessages());
+      dispatch(setCurrentStatus("Drafting a direct response..."));
 
       const resultAction = await dispatch(createSession());
 
@@ -83,6 +89,7 @@ const ChatInput = ({ homeScreen = false }) => {
         dispatch(
           updateLastMessage("Error: Could not start a new chat session."),
         );
+        dispatch(setCurrentStatus(""));
         setIsSubmitting(false);
         return;
       }
@@ -91,6 +98,7 @@ const ChatInput = ({ homeScreen = false }) => {
     if (!sessionForThisSend) {
       console.error("No active session for sending message.");
       dispatch(updateLastMessage("Error: No active chat session."));
+      dispatch(setCurrentStatus(""));
       setIsSubmitting(false);
       return;
     }
@@ -98,127 +106,56 @@ const ChatInput = ({ homeScreen = false }) => {
     const clientTurnId = createClientTurnId();
 
     dispatch(addUserMessage(rawPrompt));
-    dispatch(addAssistantPlaceholder({ client_turn_id: clientTurnId }));
 
     const currentPrompt = ask ? `@ask ${ask}: ${rawPrompt}` : rawPrompt;
 
     dispatch(setPrompt(""));
 
-    const ws = new WebSocket(
-      `${WS_BASE_URL}/${user.username}/${sessionForThisSend.session_id}?token=${token}`,
-    );
+    sendChatMessageWithSocket({
+      wsUrl: `${WS_BASE_URL}/${user.username}/${sessionForThisSend.session_id}?token=${token}`,
+      text: currentPrompt,
+      context: ask,
+      clientTurnId,
 
-    let hasReceivedStream = false;
+      onStatus: (statusText) => {
+        dispatch(setCurrentStatus(statusText));
+      },
 
-    ws.onopen = () => {
-      ws.send(
-        JSON.stringify({
-          text: currentPrompt,
-          context: ask,
-          client_turn_id: clientTurnId,
-        }),
-      );
-    };
+      onDelta: (delta, responseTurnId) => {
+        dispatch(setCurrentStatus(""));
 
-    ws.onmessage = (e) => {
-      try {
-        const response = JSON.parse(e.data);
-        const responseTurnId = response?.client_turn_id || clientTurnId;
+        dispatch(
+          appendToAssistantMessage({
+            client_turn_id: responseTurnId,
+            text: delta,
+          }),
+        );
+      },
 
-        if (response?.type === "status") {
-          const statusText =
-            response?.text ||
-            response?.message ||
-            response?.status ||
-            "Generating response...";
+      onDone: (responseTurnId, assistantMessageId, finalText) => {
+        dispatch(setCurrentStatus(""));
 
-          dispatch(
-            setAssistantStatus({
-              client_turn_id: responseTurnId,
-              status: statusText,
-            }),
-          );
-          return;
-        }
+        dispatch(
+          finalizeAssistantMessage({
+            client_turn_id: responseTurnId,
+            id: assistantMessageId ?? null,
+            text: finalText,
+          }),
+        );
 
-        if (response?.type === "phase") {
-          const phaseText =
-            response?.text ||
-            response?.message ||
-            response?.phase ||
-            "Working on your request...";
+        setIsSubmitting(false);
+      },
 
-          dispatch(
-            setAssistantStatus({
-              client_turn_id: responseTurnId,
-              status: phaseText,
-            }),
-          );
-          return;
-        }
+      onError: () => {
+        dispatch(setCurrentStatus(""));
+        dispatch(updateLastMessage("Error generating response."));
+        setIsSubmitting(false);
+      },
 
-        if (response?.final) {
-          if (
-            typeof response?.text === "string" &&
-            response.text.trim() &&
-            !hasReceivedStream
-          ) {
-            dispatch(
-              finalizeAssistantMessage({
-                client_turn_id: responseTurnId,
-                id: response?.assistant_message_id ?? null,
-                text: response.text,
-              }),
-            );
-          } else {
-            dispatch(
-              finalizeAssistantMessage({
-                client_turn_id: responseTurnId,
-                id: response?.assistant_message_id ?? null,
-              }),
-            );
-          }
-
-          setIsSubmitting(false);
-          ws.close();
-          return;
-        }
-
-        if (
-          typeof response?.text === "string" &&
-          response.text &&
-          !response.text.startsWith("\n---\n### Live results — Up next:")
-        ) {
-          hasReceivedStream = true;
-
-          dispatch(
-            appendToAssistantMessage({
-              client_turn_id: responseTurnId,
-              text: response.text,
-            }),
-          );
-        }
-      } catch (error) {
-        console.error("WebSocket parse error:", error);
-      }
-    };
-
-    ws.onerror = (e) => {
-      console.error("WebSocket error:", e);
-      dispatch(updateLastMessage("Error generating response."));
-      dispatch(
-        setAssistantStatus({
-          client_turn_id: clientTurnId,
-          status: null,
-        }),
-      );
-      setIsSubmitting(false);
-    };
-
-    ws.onclose = () => {
-      console.log("WebSocket closed");
-      setIsSubmitting(false);
-    };
+      onClose: () => {
+        setIsSubmitting(false);
+      },
+    });
   };
 
   return (
@@ -247,8 +184,10 @@ const ChatInput = ({ homeScreen = false }) => {
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
-              placeholder="Type a message"
-              placeholderTextColor="#9CA3AF"
+              placeholder="Typ hier"
+              placeholderTextColor={
+                themeName === "dark" ? "#9CA3AF" : "#6B7280"
+              }
               multiline
               value={prompt}
               onChangeText={handleInputChange}
@@ -308,27 +247,28 @@ const ChatInput = ({ homeScreen = false }) => {
   );
 };
 
-const getStyles = (theme: any, homeScreen: boolean) => {
+const getStyles = (theme: any, homeScreen: boolean, themeName: string) => {
   const { height } = Dimensions.get("window");
   const isSmallScreen = height < 700;
+  const isDark = themeName === "dark";
 
   return StyleSheet.create({
     container: {
       borderRadius: 18,
-      backgroundColor: "#FFFFFF",
+      backgroundColor: isDark ? "#111827" : "#FFFFFF",
       borderWidth: 1,
-      borderColor: "#E5E7EB",
+      borderColor: isDark ? "#374151" : "#E5E7EB",
       overflow: "hidden",
       padding: 6,
     },
     containerAsk: {
-      backgroundColor: "#FFFFFF",
+      backgroundColor: isDark ? "#111827" : "#FFFFFF",
       borderRadius: 18,
       paddingTop: 4,
       paddingBottom: 4,
       paddingHorizontal: 4,
       borderWidth: 1,
-      borderColor: "#E5E7EB",
+      borderColor: isDark ? "#374151" : "#E5E7EB",
     },
     askContainer: {
       flexDirection: "row",
@@ -337,16 +277,16 @@ const getStyles = (theme: any, homeScreen: boolean) => {
       paddingHorizontal: 15,
       paddingVertical: 8,
       borderBottomWidth: 1,
-      borderBottomColor: "#F3F4F6",
+      borderBottomColor: isDark ? "#374151" : "#F3F4F6",
     },
     askText: {
-      color: "#374151",
+      color: isDark ? "#FFFFFF" : "#374151",
       fontFamily: "Inter_500Medium",
       fontSize: 15,
       textTransform: "capitalize",
     },
     inputContainer: {
-      backgroundColor: "#FFFFFF",
+      backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
       borderRadius: 14,
       paddingHorizontal: 10,
       paddingTop: 10,
@@ -354,7 +294,7 @@ const getStyles = (theme: any, homeScreen: boolean) => {
     },
     input: {
       fontSize: 16,
-      color: "#111827",
+      color: isDark ? "#FFFFFF" : "#111827",
       maxHeight: 160,
       minHeight: homeScreen ? (isSmallScreen ? 80 : 112) : 50,
       textAlignVertical: "top",
@@ -405,7 +345,7 @@ const getStyles = (theme: any, homeScreen: boolean) => {
       fontWeight: "400",
       fontSize: 13,
       lineHeight: 16,
-      color: "#6B7280",
+      color: isDark ? "#9CA3AF" : "#6B7280",
       textAlign: "center",
     },
   });
